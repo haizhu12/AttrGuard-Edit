@@ -1,9 +1,14 @@
 AttrGuard-Edit
 
-This repository is a source-only runtime snapshot. It does not distribute
-model weights, datasets, generated outputs, training artifacts, or experiment
-records. Model checkpoints must be obtained separately and may be governed by
-different licenses.
+This repository is a runtime-focused source snapshot. It does not distribute
+model weights, datasets, training artifacts, experiment records, masks, or run
+logs. The sole generated-output exception is the reviewed documentation image
+at assets/readme/astronaut-suit-blue-comparison-seed42.png. Its source panel is
+the public-domain NASA Eileen Collins image distributed by scikit-image:
+https://scikit-image.org/docs/stable/api/skimage.data.html#skimage.data.astronaut
+The generated panels were produced with external model weights that are not
+distributed here. Model checkpoints must be obtained separately and may be
+governed by different licenses.
 
 Repository-level license
 ------------------------

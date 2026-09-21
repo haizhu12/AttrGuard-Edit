@@ -83,6 +83,13 @@ secrets*.json
 *.wav
 *.mp3
 
+# Curated documentation media (reviewed, not an experiment/data directory)
+!/assets/
+/assets/*
+!/assets/readme/
+/assets/readme/*
+!/assets/readme/astronaut-suit-blue-comparison-seed42.png
+
 # Editors and operating systems
 .idea/
 .vscode/
