@@ -1,0 +1,63 @@
+AttrGuard-Edit
+
+This repository is a source-only runtime snapshot. It does not distribute
+model weights, datasets, generated outputs, training artifacts, or experiment
+records. Model checkpoints must be obtained separately and may be governed by
+different licenses.
+
+Repository-level license
+------------------------
+The combined work is distributed under GNU General Public License version 3
+only (GPL-3.0-only). The complete text is in LICENSE. This choice preserves the
+copyleft obligations of the TaylorSeer-derived components listed below; it does
+not remove the notices or original terms that apply to other components.
+
+Apache-2.0 components
+---------------------
+The Boogu-Image-derived runtime and files carrying Apache-2.0 headers retain
+their original Apache License 2.0 terms and attribution, including work derived
+from BAAI, the OmniGen2 Team, Hugging Face, Stability AI, Katherine Crowson,
+and the TSAIL Team. The Apache-2.0 text is in LICENSES/Apache-2.0.txt.
+
+Upstream project: https://github.com/boogu-project/Boogu-Image
+
+GPL-3.0-only components
+-----------------------
+The following TaylorSeer-derived or TaylorSeer-related runtime code is covered
+by GPL-3.0-only and therefore determines the license of the combined work:
+
+  boogu/cache_functions/__init__.py
+  boogu/cache_functions/cache_init.py
+  boogu/cache_functions/cal_type.py
+  boogu/cache_functions/force_scheduler.py
+  boogu/taylorseer_utils/__init__.py
+
+These files were modified for the AttrGuard-Edit/Boogu runtime in 2026. The
+source files retain or add origin and modification notices.
+
+Upstream project: https://github.com/Shenyi-Z/TaylorSeer
+
+BSD-3-Clause component
+----------------------
+boogu/ops/triton/layer_norm.py contains work derived from Tri Dao's
+FlashAttention implementation. Its BSD-3-Clause terms are preserved in
+LICENSES/BSD-3-Clause-FlashAttention.txt.
+
+Upstream project: https://github.com/Dao-AILab/flash-attention
+
+MIT components
+--------------
+boogu/ops/triton/layer_norm.py also states that it is based on the Triton
+LayerNorm tutorial. Triton's MIT terms are preserved in
+LICENSES/MIT-Triton.txt.
+
+Upstream project: https://github.com/triton-lang/triton
+
+boogu/schedulers/scheduling_dpmsolver_multistep.py states that it is strongly
+influenced by DPM-Solver. The upstream DPM-Solver MIT terms are preserved in
+LICENSES/MIT-DPM-Solver.txt.
+
+Upstream project: https://github.com/LuChengTHU/dpm-solver
+
+Copyright and attribution notices embedded in individual source files remain
+in force.

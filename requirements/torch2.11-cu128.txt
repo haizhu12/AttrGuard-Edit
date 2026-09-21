@@ -1,0 +1,7 @@
+--index-url https://download.pytorch.org/whl/cu128
+
+# CUDA 12.8 PyTorch wheels only. Install the remaining runtime dependencies
+# from PyPI with `python -m pip install -e .`.
+torch==2.11.0
+torchvision==0.26.0
+torchaudio==2.11.0
