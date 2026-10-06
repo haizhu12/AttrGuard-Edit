@@ -22,12 +22,12 @@ _REFERENCE_ERROR = (
     "one reference image."
 )
 _CHECKPOINT_ERROR = (
-    "This standard image-editing runtime only accepts an Edit or Edit-fp8 "
-    "checkpoint; Turbo checkpoints require the separate Turbo pipeline."
+    "This image-editing-only project only accepts an Edit, Edit-fp8, or "
+    "Edit-Turbo checkpoint."
 )
 _EDIT_CHECKPOINT_NAME = re.compile(
     r"Boogu-Image(?:-\d+(?:\.\d+)*)?-Edit"
-    r"(?:-fp8(?:-reuse)?)?",
+    r"(?:-fp8(?:-reuse)?|-Turbo(?:-fp8)?(?:-reuse)?)?",
     re.IGNORECASE,
 )
 

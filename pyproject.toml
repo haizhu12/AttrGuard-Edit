@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "attrguard-edit"
-version = "0.1.0"
-description = "Runtime-only research snapshot for attribute-constrained reference-image editing"
+version = "0.2.1"
+description = "Source-conditioned attribute-preserving editing research runtime for Boogu-Image"
 readme = "README.md"
 license = "GPL-3.0-only"
 license-files = ["LICENSE", "LICENSES/*.txt", "NOTICE"]
@@ -36,7 +36,10 @@ dependencies = [
 Repository = "https://github.com/haizhu12/AttrGuard-Edit"
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = [
+    "pytest",
+    "ruff",
+]
 
 [tool.setuptools.packages.find]
 include = ["boogu*", "utils"]

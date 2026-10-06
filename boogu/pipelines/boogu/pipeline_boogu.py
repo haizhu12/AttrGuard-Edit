@@ -1,5 +1,3 @@
-# Modified for the AttrGuard-Edit/Boogu runtime on 2026-09-21; see NOTICE.
-
 import inspect
 import json
 import warnings
@@ -354,8 +352,8 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
                 and "xxxxxxxxxxxxxxxxxxxxxxxxxx" not in str(dashscope_api_key)
             ), (
                 "When use_dashscope_remote_rewriting=True, dashscope_api_key must be a valid key and must not be "
-                "the placeholder value. Set DASHSCOPE_API_KEY in the environment; "
-                "the supplied value is intentionally not included in this error."
+                "the placeholder value. "
+                f"Got dashscope_api_key={dashscope_api_key!r}."
             )
 
         share_rewriter_and_mllm = self._is_encoder_equals_reasoner()
@@ -2575,7 +2573,7 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
         max_input_image_side_length: int = 2048 * 2,
         align_res: bool = True,
         num_inference_steps: int = 50,
-        text_guidance_scale: float = 4.0,
+        text_guidance_scale: float = 1.0,
         image_guidance_scale: float = 1.0,
         empty_instruction_guidance_scale: float = 0.0,
         cfg_range: Tuple[float, float] = (0.0, 1.0),
@@ -2628,6 +2626,7 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
         far_primary_hint: torch.Tensor | None = None,
         far_hint_reliability: torch.Tensor | None = None,
         attribute_request: Any = None,
+        source_anchor_request: Any = None,
     ):
 
         if enable_inner_devices_manager is not None:
@@ -2642,6 +2641,11 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
 
         self._cfg_range = cfg_range
         self._attention_kwargs = attention_kwargs
+
+        if source_anchor_request is not None and not isinstance(
+            self.scheduler, FlowMatchEulerDiscreteScheduler
+        ):
+            raise TypeError("source anchor requires the Boogu Euler scheduler")
 
         attribute_enabled = False
         if attribute_request is not None:
@@ -2947,6 +2951,16 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
             latents,
         )
 
+        if source_anchor_request is not None:
+            from boogu.attributes.source_anchor import SourceAnchorRequest
+
+            if not isinstance(source_anchor_request, SourceAnchorRequest):
+                raise TypeError("source_anchor_request must be a SourceAnchorRequest")
+            if source_anchor_request.strength.shape != (
+                batch_size * num_images_per_instruction, 1, height, width
+            ):
+                raise ValueError("source anchor strength must match the output canvas")
+
         attribute_controller = None
         far_runtime_context = None
         if far_config.enabled:
@@ -3042,6 +3056,8 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
             )
         if attribute_controller is not None:
             processing_kwargs["attribute_controller"] = attribute_controller
+        if source_anchor_request is not None:
+            processing_kwargs["source_anchor_request"] = source_anchor_request
         try:
             decoded_image = self.processing(**processing_kwargs)
         finally:
@@ -3378,9 +3394,24 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
         trajectory_capture_context: TrajectoryCaptureContext | None = None,
         far_runtime_context: FARRuntimeContext | None = None,
         attribute_controller: Any = None,
+        source_anchor_request: Any = None,
     ):
+        if source_anchor_request is not None and not isinstance(
+            self.scheduler, FlowMatchEulerDiscreteScheduler
+        ):
+            raise TypeError("source anchor requires the Boogu Euler scheduler")
         if attribute_controller is not None and (far_runtime_context is not None or trajectory_capture_context is not None):
             raise ValueError("attribute control cannot combine FAR or trajectory capture")
+        if source_anchor_request is not None and (
+            attribute_controller is not None
+            or far_runtime_context is not None
+            or trajectory_capture_context is not None
+            or use_boosted_orthogonal_guidance
+            or pipeline_has_cache_acceleration(self)
+        ):
+            raise ValueError(
+                "source anchor requires cache-free sampling without attribute control, FAR, trajectory capture or BOG"
+            )
         if (
             attribute_controller is not None
             and getattr(attribute_controller.config, "feedback", "local") != "local"
@@ -3446,6 +3477,28 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
             len(timesteps) - num_inference_steps * self.scheduler.order, 0
         )
         self._num_timesteps = len(timesteps)
+        source_anchor = None
+        if source_anchor_request is not None:
+            from boogu.attributes.source_anchor import SourceLatentAnchor
+
+            validate_single_reference_groups(ref_latents, batch_size=batch_size)
+            target_size = latents.shape[-2:]
+            source_latents = []
+            for sample_references in ref_latents:
+                source = sample_references[0]
+                if source.shape[-2:] != target_size:
+                    source = F.interpolate(
+                        source.unsqueeze(0),
+                        size=target_size,
+                        mode="bilinear",
+                        align_corners=False,
+                    ).squeeze(0)
+                source_latents.append(source)
+            source_anchor = SourceLatentAnchor(
+                source_anchor_request,
+                torch.stack(source_latents, dim=0).to(latents),
+                latents,
+            )
         source_latent = None
         if trajectory_observer is not None:
             source_latent = torch.stack(
@@ -3859,9 +3912,20 @@ class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
                         dt=float(actual_times[i + 1] - actual_times[i]), index=i,
                         **attribute_step_kwargs,
                     )
+                if source_anchor is not None and source_anchor.mode == "velocity":
+                    model_pred = source_anchor.control_velocity(model_pred)
                 latents = self.scheduler.step(
                     model_pred, t, latents, return_dict=False
                 )[0]
+
+                if source_anchor is not None:
+                    next_time = float(self.scheduler._timesteps[i + 1])
+                    if source_anchor.mode == "projection":
+                        latents = source_anchor.project(latents, next_time)
+                    else:
+                        latents = source_anchor.project_hard_protection(
+                            latents, next_time
+                        )
 
                 latents = latents.to(dtype=dtype)
 

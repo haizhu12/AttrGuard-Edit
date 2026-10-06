@@ -1,5 +1,5 @@
 """
-AttrGuard-Edit Inference
+Boogu Image Editing Inference Demo
 
 # Copyright (C) 2026 Boogu Team.
 # This repository is a fork by Boogu Team; modifications have been made.
@@ -74,10 +74,27 @@ def to_bool(s):
     raise argparse.ArgumentTypeError("Expect bool value: true/false, 1/0, yes/no")
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv=None) -> argparse.Namespace:
     """Parse command line arguments."""
+    import sys
+
+    argv = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(
-        description="AttrGuard-Edit reference-image editing runtime."
+        description="AttrGuard-Edit 0.2.1 source-conditioned editing (legacy: --method baseline).",
+        allow_abbrev=False,
+    )
+    parser.add_argument(
+        "--method", choices=["source-conditioned", "baseline"],
+        default="source-conditioned",
+        help="Current source-conditioned architecture, or explicitly selected legacy baseline.",
+    )
+    parser.add_argument(
+        "--preservation_adapter", default=None,
+        help="Required source-conditioned adapter checkpoint (.pt); no implicit pilot weights.",
+    )
+    parser.add_argument(
+        "--preservation_permissions", default=None,
+        help="Required source-bound per-attribute K/M permission maps (.npz).",
     )
     parser.add_argument(
         "--custom_diffusion_transformer_path",
@@ -188,7 +205,8 @@ def parse_args() -> argparse.Namespace:
         help="Data type for model weights.",
     )
     parser.add_argument(
-        "--text_guidance_scale", type=float, default=4.0, help="Text guidance scale."
+        "--text_guidance_scale", type=float, default=1.0,
+        help="Text guidance scale (default: 1.0, conditional prediction without extra CFG amplification).",
     )
     parser.add_argument(
         "--image_guidance_scale", type=float, default=1.0, help="Image guidance scale."
@@ -519,8 +537,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dashscope_api_key",
         type=str,
-        default=os.getenv("DASHSCOPE_API_KEY"),
-        help="DashScope API key. Prefer the DASHSCOPE_API_KEY environment variable so the secret is not stored in shell history or exposed in the process list. Only takes effect when remote rewriting is enabled.",
+        default="sk-xxxxxxxxxxxxxxxxxxxxxxxxxx",
+        help="The api key for dashscope. Only takes effect when `use_rewrite_text_instruction` is True and `use_dashscope_remote_rewriting` is True.",
     )
 
     parser.add_argument(
@@ -733,7 +751,22 @@ def parse_args() -> argparse.Namespace:
         help="Whether to use fp8 quantized model weights for mllm and transformer. The fp8 weights of mllm are from Qwen's official repository.",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args(argv)
+    args._explicit_options = tuple(sorted({
+        parser._option_string_actions[token.split("=", 1)[0]].dest
+        for token in argv
+        if token.startswith("--") and token.split("=", 1)[0] in parser._option_string_actions
+    }))
+    if args.method == "source-conditioned":
+        for name, value in {
+            "height": None, "width": None, "instruction": None,
+            "negative_instruction": "",
+            "max_vlm_input_pil_pixels": 384 * 384,
+            "max_vlm_input_pil_side_length": 768,
+        }.items():
+            if name not in args._explicit_options:
+                setattr(args, name, value)
+    return args
 
 
 def check_pattern(s, pattern=r"\d+b_a\d+b"):
@@ -1642,6 +1675,7 @@ def run(
     far_region_probabilities=None,
     pri_region_predictor=None,
     attribute_request=None,
+    source_anchor_request=None,
 ) -> Image.Image:
     """Run the image-editing pipeline with the given parameters."""
     if (generator is None) != (reference_generator is None):
@@ -1724,6 +1758,8 @@ def run(
 
     if attribute_request is not None:
         pipeline_kwargs["attribute_request"] = attribute_request
+    if source_anchor_request is not None:
+        pipeline_kwargs["source_anchor_request"] = source_anchor_request
     results = pipeline(**pipeline_kwargs)
 
     return results
@@ -1749,10 +1785,47 @@ def _ensure_output_parent(output_image_path: str) -> None:
     os.makedirs(os.path.dirname(output_image_path) or ".", exist_ok=True)
 
 
+def _run_source_conditioned(args: argparse.Namespace) -> None:
+    """Run the current method and save its image and provenance sidecar."""
+    import json
+    from pathlib import Path
+    from PIL import Image
+
+    from boogu.preservation.runtime import run_source_conditioned
+
+    output_path = Path(args.output_image_path)
+    metadata_path = output_path.with_suffix(output_path.suffix + ".json")
+    if output_path.suffix.lower() != ".png":
+        raise ValueError("source-conditioned output_image_path must end in .png")
+    if output_path.exists() or metadata_path.exists():
+        raise FileExistsError("Output image or metadata already exists; choose a fresh output_image_path.")
+    images, metadata = run_source_conditioned(args)
+    _ensure_output_parent(str(output_path))
+    # Exclusive creation prevents accidentally overwriting an input or an earlier run.
+    with output_path.open("xb") as stream:
+        pixels = images[0].detach().float().cpu().permute(1, 2, 0).numpy()
+        Image.fromarray((pixels * 255).round().clip(0, 255).astype("uint8")).save(stream, format="PNG")
+    metadata = {**metadata, "code_version": "0.2.1", "output_image_path": str(output_path.resolve()),
+                "png_quantization": "round-to-nearest uint8"}
+    with metadata_path.open("x", encoding="utf-8") as stream:
+        json.dump(metadata, stream, ensure_ascii=False, indent=2, allow_nan=False)
+        stream.write("\n")
+    print(f"Image saved to {output_path}; provenance saved to {metadata_path}")
+
+
 def main(args: argparse.Namespace, root_dir: str) -> None:
     """Run reference-image editing from validated CLI inputs."""
 
     require_edit_checkpoint(args.pretrained_pipeline_name_or_path)
+    method = getattr(args, "method", "source-conditioned")
+    if method == "source-conditioned":
+        return _run_source_conditioned(args)
+    if method != "baseline":
+        raise ValueError(f"Unknown editing method: {method!r}")
+    if any(getattr(args, name, None) is not None for name in (
+        "preservation_adapter", "preservation_permissions",
+    )):
+        raise ValueError("preservation inputs require --method source-conditioned, not baseline")
     instructions, input_images, input_image_paths = _prepare_edit_inputs(args)
     if args.batch_size is None:
         args.batch_size = len(instructions)

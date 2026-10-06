@@ -43,6 +43,8 @@ secrets*.json
 # Data, experiments, generated artifacts, and intermediate work
 /data/
 /datasets/
+/inputs/
+/training_cache/
 /outputs/
 /results/
 /runs/
@@ -89,6 +91,20 @@ secrets*.json
 !/assets/readme/
 /assets/readme/*
 !/assets/readme/astronaut-suit-blue-comparison-seed42.png
+
+# Curated operating guide and deterministic regression tests only
+!/docs/
+/docs/*
+!/docs/source-conditioned-generation.md
+!/tests/
+/tests/*
+!/tests/test_preservation_checkpoints.py
+!/tests/test_preservation_cli.py
+!/tests/test_preservation_runtime.py
+!/tests/test_preservation_training.py
+!/tests/test_source_preservation.py
+!/tests/test_source_preservation_objectives.py
+!/tests/test_far_cli.py
 
 # Editors and operating systems
 .idea/

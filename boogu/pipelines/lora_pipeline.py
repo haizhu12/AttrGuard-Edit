@@ -56,8 +56,7 @@ PROMPT_EMBEDDING_NAME = "prompt_embedding"
 
 class BooguImageLoraLoaderMixin(LoraBaseMixin):
     r"""
-    Load LoRA layers into [`BooguImageTransformer2DModel`, `PromptEmbedding`]
-    for [`BooguImagePipeline`].
+    Load LoRA layers into [`BooguImageTransformer2DModel`,`PromptEmbedding`]. Specific to [`BooguImagePipeline`,`BooguImageTurboPipeline`].
     """
 
     _lora_loadable_modules = ["transformer", "prompt_embedding"]
