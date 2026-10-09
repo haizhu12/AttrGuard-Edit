@@ -53,6 +53,54 @@ def test_new_architecture_is_default_and_requires_actual_edit_inputs():
     assert args.height is None and args.width is None
     assert args.instruction is None
     assert args.negative_instruction == ""
+    assert args.preservation_keep_mode == "off"
+    assert args.preservation_optimization == "off"
+    assert args.preservation_edit_anchor == "rgb"
+
+
+@pytest.mark.parametrize("mode", ["off", "latent"])
+def test_inference_optimization_cli_choices(mode):
+    args = parse("--preservation_optimization", mode)
+    assert args.preservation_optimization == mode
+    assert "preservation_optimization" in args._explicit_options
+
+
+def test_baseline_rejects_latent_optimization_before_loading():
+    ns = load_functions("main", require_edit_checkpoint=lambda path: None,
+                        _prepare_edit_inputs=lambda args: pytest.fail("legacy loading reached"))
+    with pytest.raises(ValueError, match="preservation_optimization"):
+        ns["main"](SimpleNamespace(pretrained_pipeline_name_or_path="Edit", method="baseline",
+                                   preservation_optimization="latent"), str(ROOT))
+
+
+@pytest.mark.parametrize("mode", ["rgb", "attribute"])
+def test_edit_anchor_cli_choices(mode):
+    args = parse("--preservation_edit_anchor", mode)
+    assert args.preservation_edit_anchor == mode
+    assert "preservation_edit_anchor" in args._explicit_options
+
+
+def test_baseline_rejects_attribute_anchor_before_loading():
+    ns = load_functions("main", require_edit_checkpoint=lambda path: None,
+                        _prepare_edit_inputs=lambda args: pytest.fail("legacy loading reached"))
+    with pytest.raises(ValueError, match="preservation_edit_anchor"):
+        ns["main"](SimpleNamespace(pretrained_pipeline_name_or_path="Edit", method="baseline",
+                                   preservation_edit_anchor="attribute"), str(ROOT))
+
+
+@pytest.mark.parametrize("mode", ["off", "project", "source-memory"])
+def test_keep_routing_cli_choices(mode):
+    args = parse("--preservation_keep_mode", mode)
+    assert args.preservation_keep_mode == mode
+    assert "preservation_keep_mode" in args._explicit_options
+
+
+def test_baseline_rejects_keep_routing_before_loading():
+    ns = load_functions("main", require_edit_checkpoint=lambda path: None,
+                        _prepare_edit_inputs=lambda args: pytest.fail("legacy loading reached"))
+    with pytest.raises(ValueError, match="preservation"):
+        ns["main"](SimpleNamespace(pretrained_pipeline_name_or_path="Edit", method="baseline",
+                                   preservation_keep_mode="project"), str(ROOT))
 
 
 def test_explicit_values_are_preserved_and_recorded():
@@ -169,7 +217,7 @@ def test_source_entry_saves_actual_png_and_provenance(monkeypatch, tmp_path):
         assert image.size == (16, 16)
         assert image.getpixel((0, 0)) == (128, 128, 128)
     metadata = json.loads(path.with_suffix(".png.json").read_text(encoding="utf-8"))
-    assert metadata["code_version"] == "0.2.1"
+    assert metadata["code_version"] == "0.2.2"
     assert metadata["seed"] == 42 and metadata["method"] == "source-conditioned"
 
 

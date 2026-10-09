@@ -1,8 +1,8 @@
-# AttrGuard-Edit 0.2.1
+# AttrGuard-Edit 0.2.2
 
 [English](README.md)
 
-AttrGuard-Edit 是研究用途的图像编辑运行时，目标是在完成指令编辑时保持其他属性。0.2.1 已将当前 Full 源图条件版本接入正式推理和训练入口。
+AttrGuard-Edit 是研究用途的图像编辑运行时，目标是在完成指令编辑时保持其他属性。0.2.2 存档当前 Full 源图条件推理、配对训练和默认关闭的推理时保持控制；版本变化见 [CHANGELOG](CHANGELOG.md)。
 
 当前默认 CFG=1，此时跳过负向 DiT 分支；Full 结构不变。本次版本集成没有重新训练已有研究适配器，也不表示通用图像质量已经得到验证。
 
@@ -92,11 +92,34 @@ python inference.py `
 
 快捷入口 `inference_ti2i_simple.py` 委托给同一正式 CLI，默认 50 步、CFG=1、seed=42、CUDA，底座默认为研究布局 `models/Boogu-Image-0.1-Edit-fp8-reuse`。使用官方完整下载目录时，需显式覆盖 `--pretrained_pipeline_name_or_path`。它不会自动挑选源图、指令、adapter 或权限。
 
+### 实验性保持开关（默认关闭）
+
+在上述命令中添加 `--preservation_keep_mode project` 或 `--preservation_keep_mode source-memory`。省略时仍为 `off`，不改变原推理路径或已有权重。
+
+- `project`：在采样过程中保持明确要求像素不变的区域，作为空间约束对照。
+- `source-memory`：在此基础上，逐层引入保护区域的源图特征；要求 CFG=1、负指令为空。存在可保护区域时，每步多执行一次不加载适配器的源图 DiT 前向。
+
+只有整个图像 token 都是 pixel-K、且所有属性均无 modify 的位置才会锁定；混合区域、未知区域以及只有结构/纹理保持要求的位置不会被整块锁住。该功能不是结果像素回贴，也不能保证编辑对象内部的非目标属性不变。它目前是用于验证的可选机制，不是已确认更优的新默认方案。详细边界与运行记录见[实验说明](docs/executable-keep-routing.md)。
+
+10 月 7 日的 18 次固定对照已完成：两种开启模式降低了保留区误差，但 source-memory 也出现了抑制目标替换、保留待删除球的反效果。因此都不提升为默认方案，也不能据此宣称通用属性保留问题已解决。
+
+### 实验性潜变量优化（默认关闭）
+
+在正式源图条件命令中追加：
+
+```text
+--preservation_optimization latent --preservation_edit_anchor attribute --preservation_keep_mode off --text_guidance_scale 1
+```
+
+仅通过冻结的 FP32 VAE 优化当前图像潜变量，不更新模型权重。省略开关仍关闭优化；`--preservation_edit_anchor rgb` 选择早期 RGB 锚点，`attribute` 使用显式属性权限，只有 pixel-M 时精确回退旧 RGB 规则。属性锚点必须配合 latent 优化；不能与保持路由、CFG≠1 或旧 baseline 混用。
+
+10 月 9 日诊断在一个小狗换色案例中改善了部分保持代理，但主要毛发／面部差异仍在；另五组兼容性对照未改变，不能据此宣称通用结构或身份保真。本轮使用另一份已存在的 MagicBrush pilot（9 对训练、96 次更新），不是前述一张照片的旧权重；两者都不随源码分发。使用与限制见[潜变量优化说明](docs/inference-latent-optimization.md)。本次源码存档不上传新实验图、数据或私有实验执行器。
+
 ## 6. 支持范围与旧版迁移
 
 当前路径限定单图、单参考、同画布、Euler、BF16 计算和 FP32 VAE。批量、多参考、变画布、FAR、旧属性修正、缓存加速、hook offload 与指令改写均不支持；参数不兼容时会在生成前报错。
 
-旧 Edit 工作流需显式加入 `--method baseline`，并删除 preservation 参数。`inference_turbo.py` 仍是独立的旧 Edit-Turbo 入口，不能加载当前 adapter。早期 NASA 宇航员或合成展示只记录历史方法，不能证明 0.2.1 的质量；本次不上传新的输出图。
+旧 Edit 工作流需显式加入 `--method baseline`，并删除 preservation 参数。`inference_turbo.py` 仍是独立的旧 Edit-Turbo 入口，不能加载当前 adapter。早期 NASA 宇航员或合成展示只记录历史方法，不能证明 0.2.2 的质量；本次不上传新的输出图。
 
 若本机底座通过目录联接复用组件，保留其目标目录。研究环境中的 `models/Boogu-Image-0.1-Edit-fp8-reuse` 依赖 `models/Boogu-Image-0.1-Turbo-fp8`，不能删除后者。
 

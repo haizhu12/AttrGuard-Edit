@@ -154,6 +154,22 @@ def test_even_explicit_inert_legacy_option_is_rejected(runtime):
         )
 
 
+@pytest.mark.parametrize("options", [
+    {"preservation_keep_mode": "typo"},
+    {"preservation_keep_mode": "source-memory", "text_guidance_scale": 4},
+    {"preservation_keep_mode": "source-memory", "negative_instruction": "blur"},
+])
+def test_keep_mode_preflight_rejects_incompatible_options(runtime, options):
+    with pytest.raises(ValueError, match="mode|source-memory"):
+        runtime._validate_options(SimpleNamespace(**options))
+
+
+@pytest.mark.parametrize("mode", ["off", "project", "source-memory"])
+def test_keep_modes_are_supported_explicit_options(runtime, mode):
+    runtime._validate_options(SimpleNamespace(preservation_keep_mode=mode,
+        _explicit_options=("preservation_keep_mode",)))
+
+
 def adapter_state():
     config = {
         "hidden_size": 8,
@@ -308,6 +324,47 @@ def test_cfg1_uses_only_positive_branch(runtime):
         freqs_cis=None, steps=2, guidance=1.0)
     assert len(calls) == 2
     assert torch.equal(result, torch.ones_like(result))
+
+
+def test_optimizer_callback_runs_after_each_native_step_with_actual_times(runtime):
+    from boogu.schedulers.scheduling_flow_match_euler_discrete_time_shifting import FlowMatchEulerDiscreteScheduler
+    latent = torch.zeros(1, 3, 2, 4, dtype=torch.bfloat16)
+    calls = []
+    class Optimizer:
+        def step(self, next_latent, *, before_latent, velocity, t, next_t, index):
+            calls.append((float(t), float(next_t), index))
+            assert torch.equal(next_latent, (before_latent.float() + (float(next_t) - float(t)) * velocity).to(latent.dtype))
+            return next_latent + 0.125
+    with torch.no_grad():
+        result = runtime._denoise(lambda **kw: torch.ones_like(kw["hidden_states"]),
+            FlowMatchEulerDiscreteScheduler(do_shift=False), latent, latent, None,
+            (torch.ones(1, 1, 6), torch.ones(1, 1), None, None), freqs_cis=None,
+            steps=2, guidance=1.0, optimizer=Optimizer())
+    assert calls == [(0.0, 0.5, 0), (0.5, 1.0, 1)]
+    assert torch.equal(result, torch.full_like(latent, 1.25))
+
+
+@pytest.mark.parametrize("options", [
+    {"preservation_edit_anchor": "typo"},
+    {"preservation_edit_anchor": "attribute"},
+    {"preservation_optimization": "typo"},
+    {"preservation_optimization": "latent", "text_guidance_scale": 4},
+    {"preservation_optimization": "latent", "preservation_keep_mode": "project"},
+    {"preservation_optimization": "latent", "preservation_keep_mode": "source-memory"},
+    {"preservation_optimization": "latent", "method": "baseline"},
+])
+def test_optimization_preflight_rejects_incompatible_options_before_loading(runtime, inputs, monkeypatch, options):
+    for key, value in options.items(): setattr(inputs, key, value)
+    monkeypatch.setattr(torch, "load", lambda *a, **kw: pytest.fail("weights loaded"))
+    with pytest.raises(ValueError, match="optimization"):
+        runtime._preflight(inputs)
+
+
+@pytest.mark.parametrize("keep_mode,guidance", [("project", 1), ("source-memory", 1), ("off", 2)])
+def test_denoise_rejects_optimizer_conflicts_before_model(runtime, keep_mode, guidance):
+    with torch.no_grad(), pytest.raises(ValueError, match="optimization"):
+        runtime._denoise(None, None, None, None, None, None, freqs_cis=None,
+            steps=2, guidance=guidance, keep_mode=keep_mode, optimizer=object())
 
 
 @pytest.fixture
@@ -496,15 +553,22 @@ def test_preflight_protects_output_paths(runtime, inputs, bad, tmp_path):
 
 
 @pytest.mark.parametrize("fail_denoising", [False, True])
+@pytest.mark.parametrize("keep_mode", ["off", "project", "source-memory-empty", "latent", "latent-attribute"])
 def test_staged_runtime_uses_mode_sample_fp32_decode_and_removes_hooks(
-    runtime, inputs, monkeypatch, fail_denoising
+    runtime, inputs, monkeypatch, fail_denoising, keep_mode
 ):
     from boogu.models.transformers.transformer_boogu import BooguImageTransformer2DModel
     from boogu.schedulers.scheduling_flow_match_euler_discrete_time_shifting import (
         FlowMatchEulerDiscreteScheduler,
     )
 
+    optimizing = keep_mode.startswith("latent")
+    inputs.preservation_optimization = "latent" if optimizing else "off"
+    inputs.preservation_edit_anchor = "attribute" if keep_mode == "latent-attribute" else "rgb"
+    inputs.preservation_keep_mode = "off" if optimizing else keep_mode.replace("-empty", "")
     checked = runtime._preflight(inputs)
+    if keep_mode == "source-memory-empty":
+        checked.permissions[0].zero_()
     checked.device = torch.device(
         "cpu"
     )  # Small doubles exercise orchestration without GPU/model weights.
@@ -512,6 +576,15 @@ def test_staged_runtime_uses_mode_sample_fp32_decode_and_removes_hooks(
     monkeypatch.setattr(runtime, "_check_cuda_device", lambda device: device)
     monkeypatch.setattr(runtime, "_free_cuda", lambda: None)
     calls = []
+    observed_wrappers = []
+    original_wrapper = runtime.SourceConditionedTransformer
+
+    def capture_wrapper(*args, **kwargs):
+        wrapper = original_wrapper(*args, **kwargs)
+        observed_wrappers.append(wrapper)
+        return wrapper
+
+    monkeypatch.setattr(runtime, "SourceConditionedTransformer", capture_wrapper)
 
     class Posterior:
         def mode(self):
@@ -523,12 +596,18 @@ def test_staged_runtime_uses_mode_sample_fp32_decode_and_removes_hooks(
             return torch.ones(1, 16, 2, 4)
 
     class VAE(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.config = SimpleNamespace(**checked.vae_config)
+            self.weight = torch.nn.Parameter(torch.ones(1))
+
         def encode(self, value):
             assert value.dtype == torch.float32
             return SimpleNamespace(latent_dist=Posterior())
 
         def decode(self, value, return_dict):
             assert value.dtype == torch.float32
+            assert not self.training and not self.weight.requires_grad
             calls.append("decode")
             return (torch.zeros(1, 3, 16, 32),)
 
@@ -543,6 +622,8 @@ def test_staged_runtime_uses_mode_sample_fp32_decode_and_removes_hooks(
 
         def forward(self, **kwargs):
             assert hasattr(self, "_source_preservation_owner")
+            owner = observed_wrappers[0]
+            assert not owner.training and all(not p.requires_grad for p in owner.parameters())
             if fail_denoising:
                 raise RuntimeError("native denoising failure")
             return torch.zeros_like(kwargs["hidden_states"])
@@ -583,7 +664,22 @@ def test_staged_runtime_uses_mode_sample_fp32_decode_and_removes_hooks(
         assert result.device.type == "cpu" and result.shape == (1, 3, 16, 32)
         assert torch.all(result == 0.5)
         assert metadata["seed"] == 42 and metadata["reference_seed"] == 43
+        assert metadata["preservation_keep_mode"] == inputs.preservation_keep_mode
+        assert metadata["keep_routing"]["eligible_token_count"] == (0 if keep_mode == "source-memory-empty" else 2)
+        assert metadata["keep_routing"]["eligible_token_fraction"] == (0 if keep_mode == "source-memory-empty" else 1)
+        assert metadata["keep_routing"]["effective_mode"] == ("off" if keep_mode == "source-memory-empty" or optimizing else keep_mode)
+        assert metadata["keep_routing"]["source_memory_forwards_per_step"] == 0
         json.dumps(metadata, allow_nan=False)
-        assert calls == ["mode", ("sample", 43), "decode"]
+        assert metadata["preservation_optimization"] == inputs.preservation_optimization
+        assert metadata["inference_optimization"]["training_steps"] == 0
+        assert metadata["inference_optimization"]["mode"] == inputs.preservation_optimization
+        assert metadata["preservation_edit_anchor"] == inputs.preservation_edit_anchor
+        assert metadata["inference_optimization"]["config"]["edit_anchor"] == inputs.preservation_edit_anchor
+        if optimizing:
+            assert len(metadata["inference_optimization"]["trace"]) == 2
+            assert calls == ["mode", ("sample", 43), "decode", "decode"]
+        else:
+            assert metadata["inference_optimization"]["trace"] == []
+            assert calls == ["mode", ("sample", 43), "decode"]
     assert not hasattr(base, "_source_preservation_owner")
     assert all(not layer._forward_hooks for layer in base.single_stream_layers)

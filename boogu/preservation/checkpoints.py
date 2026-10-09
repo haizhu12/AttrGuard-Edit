@@ -70,7 +70,7 @@ def export_full_research_adapter(source, destination, config):
                for name, value in state['adapter']['adapters'].items()):
             raise ValueError('Exported tensor values differ from research weights')
         report = {
-            'schema': 'boogu_full_adapter_export_v1', 'code_version': '0.2.1',
+            'schema': 'boogu_full_adapter_export_v1', 'code_version': '0.2.2',
             'source_file': source.name, 'source_sha256': source_digest,
             'adapter_file': destination.name, 'adapter_sha256': _sha256(destination),
             'tensor_values_unchanged': True,

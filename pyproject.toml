@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "attrguard-edit"
-version = "0.2.1"
+version = "0.2.2"
 description = "Source-conditioned attribute-preserving editing research runtime for Boogu-Image"
 readme = "README.md"
 license = "GPL-3.0-only"

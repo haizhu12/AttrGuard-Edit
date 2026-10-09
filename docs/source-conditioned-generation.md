@@ -1,4 +1,4 @@
-# AttrGuard-Edit 0.2.1：输入准备与训练
+# AttrGuard-Edit 0.2.2：输入准备与训练
 
 本页提供正式入口可读取的文件格式与操作步骤。安装和推理见 [README_CN.md](../README_CN.md)，错误处理见 [INFERENCE_GUIDE.md](../INFERENCE_GUIDE.md)。
 
@@ -189,4 +189,4 @@ python train_preservation.py train --manifest data/paired_train.json --base mode
 
 ## 5. 版本与历史记录
 
-0.2.1 的日常推理与训练不依赖 `outputs/` 中的实验 Python 文件或旧缓存。历史冻结协议、合成小样本验证、NASA 宇航员展示和旧指标保留其原版本含义，不能直接当作当前正式入口的效果证明。当前文档不把这些历史实验列为推荐训练流程。
+0.2.2 的日常推理、训练和推理时实验开关不依赖 `outputs/` 中的实验 Python 文件或旧缓存。历史冻结协议、合成小样本验证、NASA 宇航员展示和旧指标保留其原版本含义，不能直接当作当前正式入口的效果证明。当前文档不把这些历史实验列为推荐训练流程。

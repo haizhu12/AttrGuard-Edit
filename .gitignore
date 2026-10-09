@@ -65,6 +65,9 @@ secrets*.json
 /demo_scripts/
 /input_image_examples/
 /batch_data_samples/
+/CURRENT_VERSION_LOCAL.md
+/prepare_magicbrush.py
+/boogu/data_prep/
 *.npy
 *.npz
 *.parquet
@@ -96,6 +99,8 @@ secrets*.json
 !/docs/
 /docs/*
 !/docs/source-conditioned-generation.md
+!/docs/executable-keep-routing.md
+!/docs/inference-latent-optimization.md
 !/tests/
 /tests/*
 !/tests/test_preservation_checkpoints.py
@@ -105,6 +110,9 @@ secrets*.json
 !/tests/test_source_preservation.py
 !/tests/test_source_preservation_objectives.py
 !/tests/test_far_cli.py
+!/tests/test_keep_routing.py
+!/tests/test_inference_optimization.py
+!/tests/test_edit_anchoring.py
 
 # Editors and operating systems
 .idea/

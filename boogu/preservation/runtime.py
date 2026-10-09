@@ -10,7 +10,7 @@ import hashlib
 import json
 import math
 import os
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,11 +23,18 @@ from boogu.edit_only import require_edit_checkpoint
 
 from .adapters import SourceConditionedTransformer, _same_metadata
 from .conditioning import ATTRIBUTE_NAMES, prepare_condition
+from .keep_routing import KeepRouting, SourceMemoryRouting, MEMORY_STRATEGY, validate_keep_mode
+from .inference_optimization import (
+    InferenceLatentOptimizer, InferenceOptimizationConfig, optimization_metadata, validate_optimization,
+)
 
 _SUPPORTED = {
     "method",
     "preservation_adapter",
     "preservation_permissions",
+    "preservation_keep_mode",
+    "preservation_optimization",
+    "preservation_edit_anchor",
     "pretrained_pipeline_name_or_path",
     "use_fp8_weights",
     "device",
@@ -137,6 +144,18 @@ _LEGACY_DEFAULTS = {
 
 
 def _validate_options(args):
+    validate_optimization(
+        getattr(args, "preservation_optimization", "off"),
+        keep_mode=getattr(args, "preservation_keep_mode", "off"),
+        guidance=getattr(args, "text_guidance_scale", 1.0),
+        method=getattr(args, "method", "source-conditioned"),
+        edit_anchor=getattr(args, "preservation_edit_anchor", "rgb"),
+    )
+    validate_keep_mode(
+        getattr(args, "preservation_keep_mode", "off"),
+        guidance=getattr(args, "text_guidance_scale", 1.0),
+        negative_instruction=getattr(args, "negative_instruction", ""),
+    )
     explicit = set(getattr(args, "_explicit_options", ()))
     for name in explicit - _SUPPORTED:
         raise ValueError(f"source-conditioned does not support explicit --{name}")
@@ -801,43 +820,73 @@ def _denoise(
     freqs_cis,
     steps,
     guidance,
+    keep_mode="off",
+    optimizer=None,
 ):
+    if optimizer is not None:
+        validate_optimization("latent", keep_mode=keep_mode, guidance=guidance)
+        if torch.is_grad_enabled():
+            raise RuntimeError("latent optimization is inference-only and requires no_grad")
+    validate_keep_mode(keep_mode, guidance=guidance)
+    if keep_mode != "off" and torch.is_grad_enabled():
+        raise RuntimeError("keep routing is inference-only and requires no_grad")
+    routing = KeepRouting(condition, latent) if keep_mode != "off" else None
+    # No eligible patches means exact native behavior and no extra model pass.
+    if routing is not None and not routing.eligible_token_count:
+        routing = None
     positive, mask, negative, negative_mask = encoded
     scheduler.set_timesteps(
         steps, device=latent.device, num_tokens=latent.shape[-2] * latent.shape[-1]
     )
-    for index, timestep in enumerate(scheduler.timesteps):
-        print(f"[source-conditioned] Denoising {index + 1}/{steps}", flush=True)
-        predictions = []
-        branches = ((positive, mask),) if guidance == 1 else ((positive, mask), (negative, negative_mask))
-        for features, attention in branches:
-            result = model(
-                preservation=condition,
+    memory_context = (
+        SourceMemoryRouting(model, routing)
+        if routing is not None and keep_mode == "source-memory" else nullcontext(None)
+    )
+    with memory_context as memory:
+        for index, timestep in enumerate(scheduler.timesteps):
+            print(f"[source-conditioned] Denoising {index + 1}/{steps}", flush=True)
+            if routing is not None:
+                latent = routing.project(latent, timestep)
+            native_kwargs = dict(
                 hidden_states=latent,
-                timestep=timestep.expand(1).to(
-                    device=latent.device, dtype=latent.dtype
-                ),
-                instruction_hidden_states=features,
-                instruction_attention_mask=attention,
-                ref_image_hidden_states=[[reference[0]]],
-                freqs_cis=freqs_cis,
-                return_dict=False,
+                timestep=timestep.expand(1).to(device=latent.device, dtype=latent.dtype),
+                ref_image_hidden_states=[[reference[0]]], freqs_cis=freqs_cis, return_dict=False,
             )
-            if (
-                not isinstance(result, torch.Tensor)
-                or result.shape != latent.shape
-                or not torch.isfinite(result).all().item()
-            ):
-                raise ValueError(
-                    "native transformer must return a finite latent-shaped tensor"
+            if memory is not None:
+                memory.capture(
+                    **{**native_kwargs, "hidden_states": routing.source_at(timestep).to(latent.dtype)},
+                    instruction_hidden_states=negative, instruction_attention_mask=negative_mask,
                 )
-            predictions.append(result)
-        velocity = predictions[0]
-        if guidance != 1:
-            velocity = velocity + (guidance - 1) * (velocity - predictions[1])
-        latent = scheduler.step(velocity, timestep, latent, return_dict=False)[0].to(
-            latent.dtype
-        )
+            predictions = []
+            branches = ((positive, mask),) if guidance == 1 else ((positive, mask), (negative, negative_mask))
+            for features, attention in branches:
+                result = (model if memory is None else memory.edit)(
+                    preservation=condition, **native_kwargs,
+                    instruction_hidden_states=features, instruction_attention_mask=attention,
+                )
+                if (
+                    not isinstance(result, torch.Tensor)
+                    or result.shape != latent.shape
+                    or not torch.isfinite(result).all().item()
+                ):
+                    raise ValueError(
+                        "native transformer must return a finite latent-shaped tensor"
+                    )
+                predictions.append(result)
+            velocity = predictions[0]
+            if guidance != 1:
+                velocity = velocity + (guidance - 1) * (velocity - predictions[1])
+            before_latent = latent
+            latent = scheduler.step(velocity, timestep, latent, return_dict=False)[0].to(
+                latent.dtype
+            )
+            if optimizer is not None:
+                next_time = scheduler.timesteps[index + 1] if index + 1 < len(scheduler.timesteps) else 1.0
+                latent = optimizer.step(latent, before_latent=before_latent, velocity=velocity,
+                                        t=timestep, next_t=next_time, index=index)
+            if routing is not None:
+                next_time = scheduler.timesteps[index + 1] if index + 1 < len(scheduler.timesteps) else 1.0
+                latent = routing.project(latent, next_time)
     return latent
 
 
@@ -847,7 +896,7 @@ def run_source_conditioned(args):
     print("[source-conditioned] Validating source, permissions and adapter", flush=True)
     inputs = _preflight(args)
     inputs.device = _check_cuda_device(inputs.device)
-    pipe = mllm = vae = base = wrapper = None
+    pipe = mllm = vae = base = wrapper = optimizer = None
     try:
         with _local_fp8_kernels(getattr(args, "use_fp8_weights", False)):
             print(
@@ -898,6 +947,7 @@ def run_source_conditioned(args):
             flush=True,
         )
         vae.to(device=inputs.device)
+        vae.requires_grad_(False).eval()
         rgb = (
             torch.from_numpy(np.array(inputs.image, dtype=np.float32, copy=True))
             .permute(2, 0, 1)
@@ -918,9 +968,14 @@ def run_source_conditioned(args):
             (posterior.sample(generator=reference_generator) - shift) * scale
         ).to(torch.bfloat16)
         condition = prepare_condition(source.cpu(), *inputs.permissions)
+        optimization_mode = getattr(args, "preservation_optimization", "off")
+        if optimization_mode == "latent":
+            optimizer = InferenceLatentOptimizer(vae, source, *inputs.permissions,
+                config=InferenceOptimizationConfig(edit_anchor=getattr(args, "preservation_edit_anchor", "rgb")))
         reference = reference.cpu()
         del source, posterior, rgb
-        vae.to(device="cpu")
+        if optimizer is None:
+            vae.to(device="cpu")
         _free_cuda()
         print(
             "[source-conditioned] Loading native transformer and required trained adapter",
@@ -949,10 +1004,16 @@ def run_source_conditioned(args):
             checkpointing=False,
         )
         wrapper.load_state(inputs.state)
-        wrapper.eval()
+        wrapper.requires_grad_(False).eval()
         encoded = tuple(_move(value, inputs.device) for value in encoded)
         reference = reference.to(device=inputs.device)
         latent = _initial_noise(reference.shape, inputs.seed, inputs.device)
+        keep_mode = getattr(args, "preservation_keep_mode", "off")
+        keep_metadata = KeepRouting(condition, latent).metadata()
+        keep_metadata["mode"] = keep_mode
+        keep_metadata["effective_mode"] = keep_mode if keep_metadata["eligible_token_count"] else "off"
+        keep_metadata["source_memory_forwards_per_step"] = int(keep_metadata["effective_mode"] == "source-memory")
+        keep_metadata["source_memory_strategy"] = MEMORY_STRATEGY if keep_mode == "source-memory" else "disabled"
         freqs = BooguImageRotaryPosEmbed.get_freqs_cis(
             inputs.config["axes_dim_rope"], inputs.config["axes_lens"], theta=10000
         )
@@ -966,6 +1027,8 @@ def run_source_conditioned(args):
             freqs_cis=freqs,
             steps=getattr(args, "num_inference_steps", 50),
             guidance=getattr(args, "text_guidance_scale", 1.0),
+            keep_mode=keep_mode,
+            **({"optimizer": optimizer} if optimizer is not None else {}),
         )
         latent = latent.float().cpu()
         wrapper.close()
@@ -992,6 +1055,11 @@ def run_source_conditioned(args):
         _assert_input_hashes(inputs)
         metadata = {
             "method": "source-conditioned",
+            "preservation_keep_mode": keep_mode,
+            "keep_routing": keep_metadata,
+            "preservation_optimization": optimization_mode,
+            "preservation_edit_anchor": getattr(args, "preservation_edit_anchor", "rgb"),
+            "inference_optimization": optimizer.metadata() if optimizer is not None else optimization_metadata(),
             "source_path": str(inputs.source_path),
             "source_rgb_sha256": source_rgb_sha256(inputs.image),
             "source_file_sha256": inputs.input_hashes[str(inputs.source_path)],
@@ -1034,5 +1102,5 @@ def run_source_conditioned(args):
         for module in (mllm, base, vae):
             if module is not None:
                 module.to(device="cpu")
-        pipe = mllm = base = vae = wrapper = None
+        pipe = mllm = base = vae = wrapper = optimizer = None
         _free_cuda()

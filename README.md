@@ -1,8 +1,8 @@
-# AttrGuard-Edit 0.2.1
+# AttrGuard-Edit 0.2.2
 
 [中文运行说明](README_CN.md)
 
-AttrGuard-Edit is a research runtime for editing an image while preserving attributes the instruction does not ask to change. Version 0.2.1 integrates the current Full source-conditioned adapter into the standard inference and training commands.
+AttrGuard-Edit is a research runtime for editing an image while preserving attributes the instruction does not ask to change. Version 0.2.2 archives the current Full source-conditioned runtime, paired training, and opt-in frozen-weight inference controls. See [CHANGELOG](CHANGELOG.md).
 
 The current method uses CFG=1 and skips the negative DiT branch at that setting. The Full architecture is unchanged. This release does not retrain the existing research adapter or establish general image quality.
 
@@ -97,11 +97,34 @@ The instruction and permissions must describe the same edit. Use a fresh output 
 
 See the [PowerShell example and troubleshooting guide](INFERENCE_GUIDE.md).
 
+### Experimental keep routing (opt-in)
+
+The runtime accepts `--preservation_keep_mode off|project|source-memory` with the same source-conditioned command above. The default remains `off`; existing adapters and base weights are unchanged.
+
+- `project`: sampling-state protection for fully known pixel-keep patches; a spatial-control ablation.
+- `source-memory`: the same protection plus source-feature routing through native double/single-stream blocks. Requires CFG=1 and an empty negative instruction; adds one unadapted source DiT forward per step when eligible patches exist.
+
+Only full pixel-keep patches with no modify permission in **any** attribute are locked. Mixed/unknown patches and attribute-only keeps are not locked. This is inference-only and does not establish within-object attribute preservation, exact decoded RGB equality, or successful editing. It is neither RGB pasting nor a direct KV-Edit implementation. Read [experimental controls and limitations](docs/executable-keep-routing.md) before enabling it.
+
+The October 7 controlled diagnostic completed 18 generations. Both enabled modes reduced protected-region error, but source-memory also suppressed a requested replacement and retained a ball requested for removal. Neither mode is promoted to the default; this is not a validated solution to general attribute preservation.
+
+### Experimental latent optimization (opt-in)
+
+Append these options to the source-conditioned command above:
+
+```text
+--preservation_optimization latent --preservation_edit_anchor attribute --preservation_keep_mode off --text_guidance_scale 1
+```
+
+This optimizes only the current image latent through the frozen FP32 VAE; no model weights are updated. Omit the options to keep optimization off. `--preservation_edit_anchor rgb` selects the earlier RGB anchor; `attribute` uses the explicit per-attribute permissions, with exact RGB fallback for pixel-only modify maps. Attribute mode requires latent optimization. It cannot be combined with keep routing, CFG other than 1, or legacy baseline.
+
+The October 9 diagnostic found small preservation-proxy improvements on one dog recoloring case, but important fur/face differences remained. Five compatibility controls were unchanged. These are not evidence of general identity/structure preservation. The diagnostic used a separate existing MagicBrush pilot (9 training pairs, 96 updates), not the older one-photo adapter described above. Neither adapter is distributed. Read [usage and limitations](docs/inference-latent-optimization.md); generated images and private experiment helpers are excluded from this code archive.
+
 ## Scope and previous versions
 
 The current method supports one image, one reference, an unchanged canvas, Euler sampling, BF16 computation and an FP32 VAE. Batch editing, canvas changes, FAR, legacy attribute corrections, cache acceleration, hook-based offloading and instruction rewriting are not supported in this path. Unsupported combinations fail before generation.
 
-Use `--method baseline` explicitly for the previous Edit workflow, without preservation arguments. `inference_turbo.py` remains a separate legacy Edit-Turbo entry and cannot use this adapter. Historical NASA astronaut and synthetic examples, where retained in earlier releases, document earlier methods and are not evidence for 0.2.1 quality. This release does not publish new example images.
+Use `--method baseline` explicitly for the previous Edit workflow, without preservation arguments. `inference_turbo.py` remains a separate legacy Edit-Turbo entry and cannot use this adapter. Historical NASA astronaut and synthetic examples, where retained in earlier releases, document earlier methods and are not evidence for 0.2.2 quality. This release does not publish new example images.
 
 If your local Edit folder uses directory junctions, preserve their targets. In the research `*-fp8-reuse` layout, deleting `models/Boogu-Image-0.1-Turbo-fp8` breaks shared components.
 

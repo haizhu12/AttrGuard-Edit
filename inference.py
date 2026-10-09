@@ -80,7 +80,7 @@ def parse_args(argv=None) -> argparse.Namespace:
 
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(
-        description="AttrGuard-Edit 0.2.1 source-conditioned editing (legacy: --method baseline).",
+        description="AttrGuard-Edit 0.2.2 source-conditioned editing (legacy: --method baseline).",
         allow_abbrev=False,
     )
     parser.add_argument(
@@ -95,6 +95,18 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument(
         "--preservation_permissions", default=None,
         help="Required source-bound per-attribute K/M permission maps (.npz).",
+    )
+    parser.add_argument(
+        "--preservation_keep_mode", choices=["off", "project", "source-memory"], default="off",
+        help="Inference-only pixel keep routing; source-memory requires CFG=1 and an empty negative instruction.",
+    )
+    parser.add_argument(
+        "--preservation_optimization", choices=["off", "latent"], default="off",
+        help="Experimental frozen-weight latent optimization; requires source-conditioned, CFG=1 and keep_mode=off.",
+    )
+    parser.add_argument(
+        "--preservation_edit_anchor", choices=["rgb", "attribute"], default="rgb",
+        help="Experimental edit retention representation. Attribute relaxes explicit color-M to per-object RGB moments; pixel-M remains RGB. Requires latent optimization.",
     )
     parser.add_argument(
         "--custom_diffusion_transformer_path",
@@ -1805,7 +1817,7 @@ def _run_source_conditioned(args: argparse.Namespace) -> None:
     with output_path.open("xb") as stream:
         pixels = images[0].detach().float().cpu().permute(1, 2, 0).numpy()
         Image.fromarray((pixels * 255).round().clip(0, 255).astype("uint8")).save(stream, format="PNG")
-    metadata = {**metadata, "code_version": "0.2.1", "output_image_path": str(output_path.resolve()),
+    metadata = {**metadata, "code_version": "0.2.2", "output_image_path": str(output_path.resolve()),
                 "png_quantization": "round-to-nearest uint8"}
     with metadata_path.open("x", encoding="utf-8") as stream:
         json.dump(metadata, stream, ensure_ascii=False, indent=2, allow_nan=False)
@@ -1822,6 +1834,12 @@ def main(args: argparse.Namespace, root_dir: str) -> None:
         return _run_source_conditioned(args)
     if method != "baseline":
         raise ValueError(f"Unknown editing method: {method!r}")
+    if getattr(args, "preservation_optimization", "off") != "off":
+        raise ValueError("preservation_optimization requires --method source-conditioned")
+    if getattr(args, "preservation_edit_anchor", "rgb") != "rgb":
+        raise ValueError("preservation_edit_anchor requires --method source-conditioned")
+    if getattr(args, "preservation_keep_mode", "off") != "off":
+        raise ValueError("preservation_keep_mode requires --method source-conditioned")
     if any(getattr(args, name, None) is not None for name in (
         "preservation_adapter", "preservation_permissions",
     )):

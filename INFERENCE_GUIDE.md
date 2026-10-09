@@ -1,4 +1,4 @@
-# AttrGuard-Edit 0.2.1 推理指南
+# AttrGuard-Edit 0.2.2 推理指南
 
 安装、底座下载与第一次运行见 [README_CN.md](README_CN.md)。本页说明正式入口、输出检查与旧命令迁移；权限制作与训练数据格式见[输入准备指南](docs/source-conditioned-generation.md)。
 
@@ -61,6 +61,8 @@ python inference_ti2i_simple.py `
 检查源图、编辑结果以及非目标区域，不能只凭进程成功或来源记录宣布保持质量达标。当前研究 adapter 的训练规模为一张真实照片、96 次更新。
 
 ## 常见问题
+
+推理时实验控制见 [保持路由](docs/executable-keep-routing.md) 和 [潜变量优化](docs/inference-latent-optimization.md)。默认均关闭；后者的属性锚点参数为 `--preservation_edit_anchor attribute`，且需 `--preservation_optimization latent --preservation_keep_mode off --text_guidance_scale 1`。这些实验开关不保证通用非目标属性保持。
 
 | 报错或现象 | 处理 |
 | --- | --- |
