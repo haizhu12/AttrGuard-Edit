@@ -12,6 +12,18 @@
 
 [中文运行说明](README_CN.md)
 
+## Editing Results
+
+| Source Image | Edited Image |
+| :---: | :---: |
+| <a href="assets/readme/paper-example-01-source.jpg"><img src="assets/readme/paper-example-01-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-01-edited.png"><img src="assets/readme/paper-example-01-edited.png" width="420" alt="Edited image"></a> |
+| <a href="assets/readme/paper-example-03-source.jpg"><img src="assets/readme/paper-example-03-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-03-edited.png"><img src="assets/readme/paper-example-03-edited.png" width="420" alt="Edited image"></a> |
+| <a href="assets/readme/paper-example-04-source.jpg"><img src="assets/readme/paper-example-04-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-04-edited.png"><img src="assets/readme/paper-example-04-edited.png" width="420" alt="Edited image"></a> |
+| <a href="assets/readme/paper-example-05-source.jpg"><img src="assets/readme/paper-example-05-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-05-edited.png"><img src="assets/readme/paper-example-05-edited.png" width="420" alt="Edited image"></a> |
+| <a href="assets/readme/paper-example-06-source.jpg"><img src="assets/readme/paper-example-06-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-06-edited.png"><img src="assets/readme/paper-example-06-edited.png" width="420" alt="Edited image"></a> |
+| <a href="assets/readme/paper-example-07-source.jpg"><img src="assets/readme/paper-example-07-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-07-edited.png"><img src="assets/readme/paper-example-07-edited.png" width="420" alt="Edited image"></a> |
+| <a href="assets/readme/paper-example-08-source.jpg"><img src="assets/readme/paper-example-08-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-08-edited.png"><img src="assets/readme/paper-example-08-edited.png" width="420" alt="Edited image"></a> |
+
 ## Abstract
 
 Instruction-driven image editing aims to carry out natural language instructions while preserving unrelated content in the source image. Spatial masks can localize an edit, but different attributes at the same location may require different treatment. For example, recoloring a garment requires preserving its printed pattern and folds, yet a strong preservation constraint across the entire garment can suppress the intended color change. We propose AttrGuard-Edit, which uses externally supplied attribute permissions to guide both generation and inference-time correction. These permissions distinguish attributes that must be preserved from those that may change and leave the remaining attributes unspecified. During generation, a conditioning adapter injects source image features and attribute roles into the generator. During sampling, the model uses an autoencoder reconstruction of the source image as a reference to correct drift in attributes marked for preservation. For attributes permitted to change, the current prediction serves as an anchor during latent updates, limiting disruption to edits already made. In experiments on real photographs, AttrGuard-Edit met the joint criteria for edit completion, non-target content preservation, and visual naturalness more often than the baseline methods did. In the designated regions outside the edited object, the outputs closely matched the source image in pixel values, perceptual features, and local structure. The code is available at <https://github.com/haizhu12/AttrGuard-Edit>.
