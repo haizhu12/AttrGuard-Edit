@@ -12,7 +12,40 @@
 
 ## Editing Results
 
-https://github.com/user-attachments/assets/00155c02-21bb-4455-b341-5b5369bdf483
+<table>
+  <tr>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Source Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Edited Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Source Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Edited Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Source Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Edited Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Source Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Edited Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Source Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Edited Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Source Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Edited Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Source Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+    <th nowrap>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Edited Image&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="assets/readme/paper-example-01-source.jpg" width="360" alt="Source image 01"></td>
+    <td align="center"><img src="assets/readme/paper-example-01-edited.png" width="360" alt="Edited image 01"></td>
+    <td align="center"><img src="assets/readme/paper-example-03-source.jpg" width="360" alt="Source image 03"></td>
+    <td align="center"><img src="assets/readme/paper-example-03-edited.png" width="360" alt="Edited image 03"></td>
+    <td align="center"><img src="assets/readme/paper-example-04-source.jpg" width="360" alt="Source image 04"></td>
+    <td align="center"><img src="assets/readme/paper-example-04-edited.png" width="360" alt="Edited image 04"></td>
+    <td align="center"><img src="assets/readme/paper-example-05-source.jpg" width="360" alt="Source image 05"></td>
+    <td align="center"><img src="assets/readme/paper-example-05-edited.png" width="360" alt="Edited image 05"></td>
+    <td align="center"><img src="assets/readme/paper-example-06-source.jpg" width="360" alt="Source image 06"></td>
+    <td align="center"><img src="assets/readme/paper-example-06-edited.png" width="360" alt="Edited image 06"></td>
+    <td align="center"><img src="assets/readme/paper-example-07-source.jpg" width="360" alt="Source image 07"></td>
+    <td align="center"><img src="assets/readme/paper-example-07-edited.png" width="360" alt="Edited image 07"></td>
+    <td align="center"><img src="assets/readme/paper-example-08-source.jpg" width="360" alt="Source image 08"></td>
+    <td align="center"><img src="assets/readme/paper-example-08-edited.png" width="360" alt="Edited image 08"></td>
+  </tr>
+</table>
 
 ## Abstract
 
