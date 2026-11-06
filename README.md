@@ -1,6 +1,28 @@
-# AttrGuard-Edit 0.2.2
+# AttrGuard-Edit: Instruction-Driven Image Editing with Attribute Permissions
+
+<p align="center">
+  Honggang Zhao<sup>a</sup>, Yi-jun Yang<sup>a,*</sup>, and Wei Zeng<sup>b</sup>
+</p>
+
+<p align="center">
+  <sup>a</sup>School of Computer Science and Technology, Xi'an Jiaotong University, Xi'an, 710049, Shaanxi, China<br>
+  <sup>b</sup>School of Mathematics and Statistics, Xi'an Jiaotong University, Xi'an, 710049, Shaanxi, China<br>
+  <sup>*</sup>Corresponding author
+</p>
 
 [中文运行说明](README_CN.md)
+
+## Abstract
+
+Instruction-driven image editing aims to carry out natural language instructions while preserving unrelated content in the source image. Spatial masks can localize an edit, but different attributes at the same location may require different treatment. For example, recoloring a garment requires preserving its printed pattern and folds, yet a strong preservation constraint across the entire garment can suppress the intended color change. We propose AttrGuard-Edit, which uses externally supplied attribute permissions to guide both generation and inference-time correction. These permissions distinguish attributes that must be preserved from those that may change and leave the remaining attributes unspecified. During generation, a conditioning adapter injects source image features and attribute roles into the generator. During sampling, the model uses an autoencoder reconstruction of the source image as a reference to correct drift in attributes marked for preservation. For attributes permitted to change, the current prediction serves as an anchor during latent updates, limiting disruption to edits already made. In experiments on real photographs, AttrGuard-Edit met the joint criteria for edit completion, non-target content preservation, and visual naturalness more often than the baseline methods did. In the designated regions outside the edited object, the outputs closely matched the source image in pixel values, perceptual features, and local structure. The code is available at <https://github.com/haizhu12/AttrGuard-Edit>.
+
+## Method Overview
+
+[![Overview of AttrGuard-Edit](assets/readme/paper-method-overview.png)](assets/readme/paper-method-overview.png)
+
+The same attribute permissions condition the generator alongside the source image and constrain latent optimization during sampling.
+
+## Code Release
 
 AttrGuard-Edit is a research runtime for editing an image while preserving attributes the instruction does not ask to change. Version 0.2.2 archives the current Full source-conditioned runtime, paired training, and opt-in frozen-weight inference controls. See [CHANGELOG](CHANGELOG.md).
 
@@ -13,7 +35,7 @@ The current method uses CFG=1 and skips the negative DiT branch at that setting.
 - A compatible Full adapter selected explicitly.
 - One source image, an editing instruction, and source-bound per-attribute permissions.
 
-There is no public trained AttrGuard adapter or automatic permission predictor in this repository. The current local research checkpoint received **96 updates on one real training photograph**. It is not a generally validated editing model. Base weights, research datasets, local outputs and private checkpoints are not distributed with the code.
+There is no public trained AttrGuard adapter or automatic permission predictor in this repository. The current local research checkpoint received **96 updates on one real training photograph**. It is not a generally validated editing model. Base weights, research datasets and private checkpoints are not distributed with the code.
 
 ## 1. Install
 
@@ -118,13 +140,13 @@ Append these options to the source-conditioned command above:
 
 This optimizes only the current image latent through the frozen FP32 VAE; no model weights are updated. Omit the options to keep optimization off. `--preservation_edit_anchor rgb` selects the earlier RGB anchor; `attribute` uses the explicit per-attribute permissions, with exact RGB fallback for pixel-only modify maps. Attribute mode requires latent optimization. It cannot be combined with keep routing, CFG other than 1, or legacy baseline.
 
-The October 9 diagnostic found small preservation-proxy improvements on one dog recoloring case, but important fur/face differences remained. Five compatibility controls were unchanged. These are not evidence of general identity/structure preservation. The diagnostic used a separate existing MagicBrush pilot (9 training pairs, 96 updates), not the older one-photo adapter described above. Neither adapter is distributed. Read [usage and limitations](docs/inference-latent-optimization.md); generated images and private experiment helpers are excluded from this code archive.
+The October 9 diagnostic found small preservation-proxy improvements on one dog recoloring case, but important fur/face differences remained. Five compatibility controls were unchanged. These are not evidence of general identity/structure preservation. The diagnostic used a separate existing MagicBrush pilot (9 training pairs, 96 updates), not the older one-photo adapter described above. Neither adapter is distributed. Read [usage and limitations](docs/inference-latent-optimization.md). Outputs from this diagnostic and private experiment helpers are excluded from the code archive.
 
 ## Scope and previous versions
 
 The current method supports one image, one reference, an unchanged canvas, Euler sampling, BF16 computation and an FP32 VAE. Batch editing, canvas changes, FAR, legacy attribute corrections, cache acceleration, hook-based offloading and instruction rewriting are not supported in this path. Unsupported combinations fail before generation.
 
-Use `--method baseline` explicitly for the previous Edit workflow, without preservation arguments. `inference_turbo.py` remains a separate legacy Edit-Turbo entry and cannot use this adapter. Historical NASA astronaut and synthetic examples, where retained in earlier releases, document earlier methods and are not evidence for 0.2.2 quality. This release does not publish new example images.
+Use `--method baseline` explicitly for the previous Edit workflow, without preservation arguments. `inference_turbo.py` remains a separate legacy Edit-Turbo entry and cannot use this adapter. Historical NASA astronaut and synthetic examples, where retained in earlier releases, document earlier methods and are not evidence for 0.2.2 quality.
 
 If your local Edit folder uses directory junctions, preserve their targets. In the research `*-fp8-reuse` layout, deleting `models/Boogu-Image-0.1-Turbo-fp8` breaks shared components.
 
