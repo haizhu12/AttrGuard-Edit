@@ -10,15 +10,9 @@
   <sup>*</sup>Corresponding author
 </p>
 
-[中文运行说明](README_CN.md)
-
 ## Editing Results
 
-<p align="center">
-  <a href="assets/readme/paper-editing-carousel.webp?raw=true">
-    <img src="assets/readme/paper-editing-carousel.webp" width="960" alt="Seven source and edited image pairs in a horizontal carousel">
-  </a>
-</p>
+https://github.com/user-attachments/assets/00155c02-21bb-4455-b341-5b5369bdf483
 
 ## Abstract
 
