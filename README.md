@@ -14,15 +14,11 @@
 
 ## Editing Results
 
-| Source Image | Edited Image |
-| :---: | :---: |
-| <a href="assets/readme/paper-example-01-source.jpg"><img src="assets/readme/paper-example-01-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-01-edited.png"><img src="assets/readme/paper-example-01-edited.png" width="420" alt="Edited image"></a> |
-| <a href="assets/readme/paper-example-03-source.jpg"><img src="assets/readme/paper-example-03-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-03-edited.png"><img src="assets/readme/paper-example-03-edited.png" width="420" alt="Edited image"></a> |
-| <a href="assets/readme/paper-example-04-source.jpg"><img src="assets/readme/paper-example-04-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-04-edited.png"><img src="assets/readme/paper-example-04-edited.png" width="420" alt="Edited image"></a> |
-| <a href="assets/readme/paper-example-05-source.jpg"><img src="assets/readme/paper-example-05-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-05-edited.png"><img src="assets/readme/paper-example-05-edited.png" width="420" alt="Edited image"></a> |
-| <a href="assets/readme/paper-example-06-source.jpg"><img src="assets/readme/paper-example-06-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-06-edited.png"><img src="assets/readme/paper-example-06-edited.png" width="420" alt="Edited image"></a> |
-| <a href="assets/readme/paper-example-07-source.jpg"><img src="assets/readme/paper-example-07-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-07-edited.png"><img src="assets/readme/paper-example-07-edited.png" width="420" alt="Edited image"></a> |
-| <a href="assets/readme/paper-example-08-source.jpg"><img src="assets/readme/paper-example-08-source.jpg" width="420" alt="Source image"></a> | <a href="assets/readme/paper-example-08-edited.png"><img src="assets/readme/paper-example-08-edited.png" width="420" alt="Edited image"></a> |
+<p align="center">
+  <a href="assets/readme/paper-editing-carousel.webp?raw=true">
+    <img src="assets/readme/paper-editing-carousel.webp" width="960" alt="Seven source and edited image pairs in a horizontal carousel">
+  </a>
+</p>
 
 ## Abstract
 
