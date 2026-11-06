@@ -1,15 +1,5 @@
 # AttrGuard-Edit: Instruction-Driven Image Editing with Attribute Permissions
 
-<p align="center">
-  Honggang Zhao<sup>a</sup>, Yi-jun Yang<sup>a,*</sup>, and Wei Zeng<sup>b</sup>
-</p>
-
-<p align="center">
-  <sup>a</sup>School of Computer Science and Technology, Xi'an Jiaotong University, Xi'an, 710049, Shaanxi, China<br>
-  <sup>b</sup>School of Mathematics and Statistics, Xi'an Jiaotong University, Xi'an, 710049, Shaanxi, China<br>
-  <sup>*</sup>Corresponding author
-</p>
-
 ## Editing Results
 
 <table>
